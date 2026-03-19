@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=LokSTT
+Comment=Configure transcription language for LokSTT
+Exec=/home/al/Projects/lokstt/lokstt/client/lokstt-client SETTINGS
+Icon=preferences-desktop-keyboard
+Terminal=false
+Type=Application
+Categories=Settings;Utility;
+Keywords=whisper;dictation;speech;voice;transcription;

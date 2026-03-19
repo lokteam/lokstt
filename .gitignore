@@ -1,0 +1,7 @@
+# Binaries
+lokstt
+client/lokstt-client
+
+# Go workspace
+.local/
+vendor/

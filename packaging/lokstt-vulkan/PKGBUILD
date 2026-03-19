@@ -1,10 +1,10 @@
-# Maintainer: Al <your_email@example.com>
+# Maintainer: Al <lokteam@protonmail.com>
 pkgname=lokstt-vulkan
 pkgver=1.0.0
 pkgrel=1
 pkgdesc="A blazing-fast and stylish GTK4 dictation daemon (Vulkan Backend for AMD/Intel)"
 arch=('x86_64')
-url="https://github.com/YOUR_USERNAME/lokstt"
+url="https://github.com/lokteam/lokstt"
 license=('MIT')
 depends=('gtk4' 'portaudio' 'ydotool' 'xdotool' 'wl-clipboard' 'vulkan-icd-loader')
 makedepends=('go' 'git' 'vulkan-headers')
@@ -12,7 +12,7 @@ conflicts=('lokstt' 'lokstt-cuda')
 provides=('lokstt')
 
 source=(
-    "git+https://github.com/YOUR_USERNAME/lokstt.git"
+    "git+https://github.com/lokteam/lokstt.git"
     "ggml-tiny.bin::https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin"
     "ggml-base.bin::https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin"
     "ggml-small.bin::https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin"

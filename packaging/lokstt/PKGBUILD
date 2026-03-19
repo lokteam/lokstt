@@ -1,14 +1,14 @@
 # Maintainer: Al <lokteam@protonmail.com>
-pkgname=lokstt-cuda
+pkgname=lokstt
 pkgver=1.0.0
 pkgrel=1
-pkgdesc="A blazing-fast and stylish GTK4 dictation daemon (CUDA Backend for NVIDIA)"
+pkgdesc="A blazing-fast and stylish GTK4 dictation daemon (CPU Backend)"
 arch=('x86_64')
 url="https://github.com/lokteam/lokstt"
 license=('MIT')
-depends=('gtk4' 'portaudio' 'ydotool' 'xdotool' 'wl-clipboard' 'cuda')
-makedepends=('go' 'git' 'cuda')
-conflicts=('lokstt' 'lokstt-vulkan')
+depends=('gtk4' 'portaudio' 'ydotool' 'xdotool' 'wl-clipboard')
+makedepends=('go' 'git')
+conflicts=('lokstt-vulkan' 'lokstt-cuda')
 provides=('lokstt')
 
 source=(
@@ -24,8 +24,6 @@ sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP')
 build() {
     cd "lokstt"
     export CGO_CXXFLAGS="-std=c++11"
-    export CGO_CFLAGS="-DGGML_USE_CUDA=1 -I/opt/cuda/include"
-    export CGO_LDFLAGS="-lcudart -lcublas -lcublasLt -L/opt/cuda/lib64"
     GOSUMDB=off go build -o lokstt main.go
     cd client
     GOSUMDB=off go build -o lokstt-client main.go

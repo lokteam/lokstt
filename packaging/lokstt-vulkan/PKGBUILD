@@ -20,6 +20,7 @@ depends=(
 makedepends=('go' 'git' 'pkgconf' 'vulkan-headers')
 conflicts=('lokstt' 'lokstt-cuda')
 provides=('lokstt')
+options=("!debug")
 install='lokstt.install'
 
 source=(

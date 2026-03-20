@@ -1,0 +1,16 @@
+[Unit]
+Description=LokSTT Dictation Daemon
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/lokstt
+Restart=on-failure
+RestartSec=5
+# Allow it to survive graphics server restarts
+# but bind to the graphical session
+Slice=session.slice
+
+[Install]
+WantedBy=graphical-session.target

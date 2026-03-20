@@ -1,0 +1,20 @@
+post_install() {
+    # Auto-enable user service globally for all users
+    systemctl --global enable lokstt.service
+    
+    echo ""
+    echo "==================================================="
+    echo "LokSTT has been installed and the daemon is enabled"
+    echo "to start automatically on your next login."
+    echo ""
+    echo "To start it RIGHT NOW without relogging, run:"
+    echo "  systemctl --user start lokstt.service"
+    echo "==================================================="
+    echo ""
+}
+
+pre_remove() {
+    systemctl --global disable lokstt.service
+    # Stop for currently running users
+    systemctl --user stop lokstt.service 2>/dev/null || true
+}

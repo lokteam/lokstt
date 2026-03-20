@@ -6,10 +6,21 @@ pkgdesc="A blazing-fast and stylish GTK4 dictation daemon (Vulkan Backend for AM
 arch=('x86_64')
 url="https://github.com/lokteam/lokstt"
 license=('MIT')
-depends=('gtk4' 'portaudio' 'ydotool' 'xdotool' 'wl-clipboard' 'vulkan-icd-loader')
-makedepends=('go' 'git' 'vulkan-headers')
+depends=(
+    'gtk4'
+    'portaudio'
+    'alsa-lib'
+    'jack'
+    'whisper.cpp-vulkan'
+    'vulkan-icd-loader'
+    'ydotool'
+    'xdotool'
+    'wl-clipboard'
+)
+makedepends=('go' 'git' 'pkgconf' 'vulkan-headers')
 conflicts=('lokstt' 'lokstt-cuda')
 provides=('lokstt')
+install='lokstt.install'
 
 source=(
     "git+https://github.com/lokteam/lokstt.git"
@@ -35,6 +46,9 @@ package() {
     install -Dm755 "lokstt/lokstt" "$pkgdir/usr/bin/lokstt"
     install -Dm755 "lokstt/client/lokstt-client" "$pkgdir/usr/bin/lokstt-client"
     install -Dm644 "lokstt/lokstt-settings.desktop" "$pkgdir/usr/share/applications/lokstt-settings.desktop"
+    
+    # Install the systemd user service
+    install -Dm644 "lokstt/lokstt.service" "$pkgdir/usr/lib/systemd/user/lokstt.service"
     
     install -d "$pkgdir/usr/share/whisper-models"
     install -Dm644 "$srcdir"/ggml-*.bin -t "$pkgdir/usr/share/whisper-models/"

@@ -37,9 +37,9 @@ sudo systemctl enable --now ydotoold
 
 ## Usage
 
-1. Start the background daemon (usually handled by your autostart script):
+1. Start the background daemon. If installed via AUR, it is enabled by default to start on login. To start it manually right now:
    ```bash
-   lokstt &
+   systemctl --user start lokstt.service
    ```
 2. Open the Settings GUI to choose your model and language:
    ```bash

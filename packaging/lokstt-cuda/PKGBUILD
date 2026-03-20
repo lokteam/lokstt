@@ -48,6 +48,8 @@ package() {
     
     # Install the systemd user service
     install -Dm644 "lokstt/lokstt.service" "$pkgdir/usr/lib/systemd/user/lokstt.service"
+    install -d "$pkgdir/usr/lib/systemd/user/graphical-session.target.wants"
+    ln -s "../lokstt.service" "$pkgdir/usr/lib/systemd/user/graphical-session.target.wants/lokstt.service"
     
     install -d "$pkgdir/usr/share/whisper-models"
     install -Dm644 "$srcdir"/ggml-*.bin -t "$pkgdir/usr/share/whisper-models/"

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/diamondburned/gotk4/pkg/gio/v2"
 	"github.com/diamondburned/gotk4/pkg/glib/v2"
@@ -52,7 +53,7 @@ func NewApp() *App {
 		// App runs in background, no main window initially.
 		// Initialize the overlay so it's ready to be shown.
 		uiApp.Overlay = NewOverlay(uiApp)
-		
+
 		// Keep the application alive even without windows
 		app.Hold()
 	})
@@ -68,17 +69,111 @@ func (a *App) ShowSettings() {
 	glib.IdleAdd(func() {
 		win := gtk.NewApplicationWindow(a.Application)
 		win.SetTitle("LokSTT Settings")
-		win.SetDefaultSize(300, 250)
+		win.SetDefaultSize(400, 500)
 
-		box := gtk.NewBox(gtk.OrientationVertical, 10)
-		box.SetMarginTop(20)
-		box.SetMarginBottom(20)
-		box.SetMarginStart(20)
-		box.SetMarginEnd(20)
+		mainBox := gtk.NewBox(gtk.OrientationVertical, 0)
 
-		label := gtk.NewLabel("Transcription Language:")
-		label.SetHAlign(gtk.AlignStart)
-		box.Append(label)
+		stack := gtk.NewStack()
+		stack.SetVExpand(true)
+		stack.SetHExpand(true)
+		stack.SetTransitionType(gtk.StackTransitionTypeSlideLeftRight)
+
+		cfg := LoadConfig()
+
+		generalBox := gtk.NewBox(gtk.OrientationVertical, 10)
+		generalBox.SetMarginTop(20)
+		generalBox.SetMarginBottom(20)
+		generalBox.SetMarginStart(20)
+		generalBox.SetMarginEnd(20)
+
+		modelLabel := gtk.NewLabel("")
+		modelLabel.SetMarkup("<b>Default Inference Model</b>")
+		modelLabel.SetHAlign(gtk.AlignStart)
+		generalBox.Append(modelLabel)
+
+		modelScroll := gtk.NewScrolledWindow()
+		modelScroll.SetVExpand(true)
+		modelScroll.SetPolicy(gtk.PolicyNever, gtk.PolicyAutomatic)
+
+		modelList := gtk.NewListBox()
+		modelList.SetSelectionMode(gtk.SelectionSingle)
+		modelList.AddCSSClass("boxed-list")
+
+		models := []struct{ id, name string }{
+			{"tiny", "Tiny (Fastest, Lowest RAM)"},
+			{"base", "Base (Fast)"},
+			{"small", "Small (Balanced)"},
+			{"medium", "Medium (Highly Accurate)"},
+			{"large-v3-turbo", "Large-v3-turbo (Slowest, Best Quality)"},
+		}
+
+		var modelCheckButtons []*gtk.Image
+
+		for _, m := range models {
+			row := gtk.NewListBoxRow()
+			rowBox := gtk.NewBox(gtk.OrientationHorizontal, 10)
+			rowBox.SetMarginTop(10)
+			rowBox.SetMarginBottom(10)
+			rowBox.SetMarginStart(10)
+			rowBox.SetMarginEnd(10)
+
+			nameLabel := gtk.NewLabel(m.name)
+			nameLabel.SetHAlign(gtk.AlignStart)
+			nameLabel.SetHExpand(true)
+
+			checkIcon := gtk.NewImageFromIconName("object-select-symbolic")
+			if m.id != cfg.Model {
+				checkIcon.SetOpacity(0)
+			}
+			modelCheckButtons = append(modelCheckButtons, checkIcon)
+
+			rowBox.Append(nameLabel)
+			rowBox.Append(checkIcon)
+			row.SetChild(rowBox)
+
+			modelList.Append(row)
+		}
+
+		modelList.ConnectRowActivated(func(row *gtk.ListBoxRow) {
+			idx := row.Index()
+			if idx >= 0 && idx < len(models) {
+				cfg.Model = models[idx].id
+				for i, icon := range modelCheckButtons {
+					if i == idx {
+						icon.SetOpacity(1)
+					} else {
+						icon.SetOpacity(0)
+					}
+				}
+				go saveConfig(cfg)
+				if a.OnConfigChange != nil {
+					a.OnConfigChange(cfg)
+				}
+			}
+		})
+
+		modelScroll.SetChild(modelList)
+		generalBox.Append(modelScroll)
+
+		stack.AddTitled(generalBox, "general", "General")
+
+		langBox := gtk.NewBox(gtk.OrientationVertical, 10)
+		langBox.SetMarginTop(20)
+		langBox.SetMarginBottom(20)
+		langBox.SetMarginStart(20)
+		langBox.SetMarginEnd(20)
+
+		searchEntry := gtk.NewSearchEntry()
+		searchEntry.SetPlaceholderText("Search languages...")
+		langBox.Append(searchEntry)
+
+		langScroll := gtk.NewScrolledWindow()
+		langScroll.SetVExpand(true)
+		langScroll.SetPolicy(gtk.PolicyNever, gtk.PolicyAutomatic)
+
+		langList := gtk.NewListBox()
+		langList.SetSelectionMode(gtk.SelectionSingle)
+		langList.AddCSSClass("boxed-list")
 
 		languages := []struct{ id, name string }{
 			{"auto", "Auto-detect"},
@@ -182,71 +277,83 @@ func (a *App) ShowSettings() {
 			{"yo", "Yoruba"},
 		}
 
-		var langNames []string
-		var langSelected uint = 0
-		cfg := LoadConfig()
+		var langCheckButtons []*gtk.Image
 
-		for i, l := range languages {
-			langNames = append(langNames, l.name)
-			if l.id == cfg.Language {
-				langSelected = uint(i)
+		for _, l := range languages {
+			row := gtk.NewListBoxRow()
+			rowBox := gtk.NewBox(gtk.OrientationHorizontal, 10)
+			rowBox.SetMarginTop(10)
+			rowBox.SetMarginBottom(10)
+			rowBox.SetMarginStart(10)
+			rowBox.SetMarginEnd(10)
+
+			nameLabel := gtk.NewLabel(l.name)
+			nameLabel.SetHAlign(gtk.AlignStart)
+			nameLabel.SetHExpand(true)
+
+			checkIcon := gtk.NewImageFromIconName("object-select-symbolic")
+			if l.id != cfg.Language {
+				checkIcon.SetOpacity(0)
 			}
+			langCheckButtons = append(langCheckButtons, checkIcon)
+
+			rowBox.Append(nameLabel)
+			rowBox.Append(checkIcon)
+			row.SetChild(rowBox)
+
+			langList.Append(row)
 		}
 
-		langDrop := gtk.NewDropDownFromStrings(langNames)
-		langDrop.SetEnableSearch(true)
-		exp := gtk.NewPropertyExpression(gtk.GTypeStringObject, nil, "string")
-		langDrop.SetExpression(exp)
-		langDrop.SetSelected(langSelected)
-
-		modelLabel := gtk.NewLabel("Model (Quantized q5_0):")
-		modelLabel.SetHAlign(gtk.AlignStart)
-		modelLabel.SetMarginTop(10)
-
-		models := []struct{ id, name string }{
-			{"tiny", "Tiny (Fastest, Lowest RAM)"},
-			{"base", "Base (Fast)"},
-			{"small", "Small (Balanced)"},
-			{"medium", "Medium (Highly Accurate)"},
-			{"large-v3-turbo", "Large-v3-turbo (Slowest, Best Quality)"},
-		}
-
-		var modelNames []string
-		var modelSelected uint = 2
-		for i, m := range models {
-			modelNames = append(modelNames, m.name)
-			if m.id == cfg.Model {
-				modelSelected = uint(i)
+		langList.SetFilterFunc(func(row *gtk.ListBoxRow) bool {
+			idx := row.Index()
+			if idx < 0 || idx >= len(languages) {
+				return false
 			}
-		}
-
-		modelDrop := gtk.NewDropDownFromStrings(modelNames)
-		modelDrop.SetSelected(modelSelected)
-
-		saveAndNotify := func() {
-			lIdx := int(langDrop.Selected())
-			mIdx := int(modelDrop.Selected())
-			
-			if lIdx >= 0 && lIdx < len(languages) {
-				cfg.Language = languages[lIdx].id
+			searchText := strings.ToLower(searchEntry.Text())
+			if searchText == "" {
+				return true
 			}
-			if mIdx >= 0 && mIdx < len(models) {
-				cfg.Model = models[mIdx].id
+			langName := strings.ToLower(languages[idx].name)
+			return strings.Contains(langName, searchText)
+		})
+
+		searchEntry.ConnectSearchChanged(func() {
+			langList.InvalidateFilter()
+		})
+
+		langList.ConnectRowActivated(func(row *gtk.ListBoxRow) {
+			idx := row.Index()
+			if idx >= 0 && idx < len(languages) {
+				cfg.Language = languages[idx].id
+				for i, icon := range langCheckButtons {
+					if i == idx {
+						icon.SetOpacity(1)
+					} else {
+						icon.SetOpacity(0)
+					}
+				}
+				go saveConfig(cfg)
+				if a.OnConfigChange != nil {
+					a.OnConfigChange(cfg)
+				}
 			}
+		})
 
-			go saveConfig(cfg)
-			if a.OnConfigChange != nil {
-				a.OnConfigChange(cfg)
-			}
-		}
+		langScroll.SetChild(langList)
+		langBox.Append(langScroll)
 
-		langDrop.Connect("notify::selected", saveAndNotify)
-		modelDrop.Connect("notify::selected", saveAndNotify)
+		stack.AddTitled(langBox, "languages", "Languages")
 
-		box.Append(langDrop)
-		box.Append(modelLabel)
-		box.Append(modelDrop)
-		win.SetChild(box)
+		switcher := gtk.NewStackSwitcher()
+		switcher.SetStack(stack)
+		switcher.SetHAlign(gtk.AlignCenter)
+		switcher.SetMarginBottom(10)
+		switcher.SetMarginTop(10)
+
+		mainBox.Append(stack)
+		mainBox.Append(switcher)
+
+		win.SetChild(mainBox)
 		win.Show()
 	})
 }

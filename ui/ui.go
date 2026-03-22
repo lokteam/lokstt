@@ -56,6 +56,7 @@ func NewApp() *App {
 		// App runs in background, no main window initially.
 		// Initialize the overlay so it's ready to be shown.
 		uiApp.Overlay = NewOverlay(uiApp)
+		uiApp.Application.Connect("startup", func() {})
 
 		// Keep the application alive even without windows
 		app.Hold()
@@ -69,11 +70,12 @@ func (a *App) Run(args []string) int {
 }
 
 func (a *App) ShowSettings() {
-	win := gtk.NewApplicationWindow(a.Application)
-	win.SetTitle("LokSTT Settings")
-	win.SetDefaultSize(400, 500)
+	glib.IdleAdd(func() {
+		win := gtk.NewApplicationWindow(a.Application)
+		win.SetTitle("LokSTT Settings")
+		win.SetDefaultSize(400, 500)
 
-	mainBox := gtk.NewBox(gtk.OrientationVertical, 0)
+		mainBox := gtk.NewBox(gtk.OrientationVertical, 0)
 
 		stack := gtk.NewStack()
 		stack.SetVExpand(true)
@@ -82,6 +84,7 @@ func (a *App) ShowSettings() {
 
 		cfg := LoadConfig()
 
+		// GENERAL PAGE (MODELS)
 		generalBox := gtk.NewBox(gtk.OrientationVertical, 10)
 		generalBox.SetMarginTop(20)
 		generalBox.SetMarginBottom(20)
@@ -110,6 +113,7 @@ func (a *App) ShowSettings() {
 		}
 
 		var modelCheckButtons []*gtk.Image
+		var selectedModelRow *gtk.ListBoxRow
 
 		for _, m := range models {
 			row := gtk.NewListBoxRow()
@@ -124,16 +128,23 @@ func (a *App) ShowSettings() {
 			nameLabel.SetHExpand(true)
 
 			checkIcon := gtk.NewImageFromIconName("object-select-symbolic")
-			if m.id != cfg.Model {
+			modelCheckButtons = append(modelCheckButtons, checkIcon)
+
+			if m.id == cfg.Model {
+				checkIcon.SetOpacity(1)
+				selectedModelRow = row
+			} else {
 				checkIcon.SetOpacity(0)
 			}
-			modelCheckButtons = append(modelCheckButtons, checkIcon)
 
 			rowBox.Append(nameLabel)
 			rowBox.Append(checkIcon)
 			row.SetChild(rowBox)
-
 			modelList.Append(row)
+
+			if selectedModelRow == row {
+				modelList.SelectRow(row)
+			}
 		}
 
 		modelList.ConnectRowActivated(func(row *gtk.ListBoxRow) {
@@ -156,9 +167,9 @@ func (a *App) ShowSettings() {
 
 		modelScroll.SetChild(modelList)
 		generalBox.Append(modelScroll)
-
 		stack.AddTitled(generalBox, "general", "General")
 
+		// LANGUAGES PAGE
 		langBox := gtk.NewBox(gtk.OrientationVertical, 10)
 		langBox.SetMarginTop(20)
 		langBox.SetMarginBottom(20)
@@ -177,112 +188,57 @@ func (a *App) ShowSettings() {
 		langList.SetSelectionMode(gtk.SelectionSingle)
 		langList.AddCSSClass("boxed-list")
 
-		languages := []struct{ id, name string }{
-			{"auto", "Auto-detect"},
-			{"en", "English"},
-			{"ru", "Russian"},
-			{"af", "Afrikaans"},
-			{"sq", "Albanian"},
-			{"am", "Amharic"},
-			{"ar", "Arabic"},
-			{"hy", "Armenian"},
-			{"as", "Assamese"},
-			{"az", "Azerbaijani"},
-			{"ba", "Bashkir"},
-			{"eu", "Basque"},
-			{"be", "Belarusian"},
-			{"bn", "Bengali"},
-			{"bs", "Bosnian"},
-			{"br", "Breton"},
-			{"bg", "Bulgarian"},
-			{"my", "Burmese"},
-			{"ca", "Catalan"},
-			{"zh", "Chinese"},
-			{"hr", "Croatian"},
-			{"cs", "Czech"},
-			{"da", "Danish"},
-			{"nl", "Dutch"},
-			{"et", "Estonian"},
-			{"fo", "Faroese"},
-			{"fi", "Finnish"},
-			{"fr", "French"},
-			{"gl", "Galician"},
-			{"ka", "Georgian"},
-			{"de", "German"},
-			{"el", "Greek"},
-			{"gu", "Gujarati"},
-			{"ht", "Haitian Creole"},
-			{"ha", "Hausa"},
-			{"haw", "Hawaiian"},
-			{"he", "Hebrew"},
-			{"hi", "Hindi"},
-			{"hu", "Hungarian"},
-			{"is", "Icelandic"},
-			{"id", "Indonesian"},
-			{"it", "Italian"},
-			{"ja", "Japanese"},
-			{"jw", "Javanese"},
-			{"kn", "Kannada"},
-			{"kk", "Kazakh"},
-			{"km", "Khmer"},
-			{"ko", "Korean"},
-			{"la", "Latin"},
-			{"lv", "Latvian"},
-			{"ln", "Lingala"},
-			{"lt", "Lithuanian"},
-			{"lb", "Luxembourgish"},
-			{"mk", "Macedonian"},
-			{"mg", "Malagasy"},
-			{"ms", "Malay"},
-			{"ml", "Malayalam"},
-			{"mt", "Maltese"},
-			{"mi", "Maori"},
-			{"mr", "Marathi"},
-			{"mn", "Mongolian"},
-			{"ne", "Nepali"},
-			{"no", "Norwegian"},
-			{"nn", "Nynorsk"},
-			{"oc", "Occitan"},
-			{"ps", "Pashto"},
-			{"fa", "Persian"},
-			{"pl", "Polish"},
-			{"pt", "Portuguese"},
-			{"pa", "Punjabi"},
-			{"ro", "Romanian"},
-			{"sa", "Sanskrit"},
-			{"sr", "Serbian"},
-			{"sn", "Shona"},
-			{"sd", "Sindhi"},
-			{"si", "Sinhala"},
-			{"sk", "Slovak"},
-			{"sl", "Slovenian"},
-			{"so", "Somali"},
-			{"es", "Spanish"},
-			{"su", "Sundanese"},
-			{"sw", "Swahili"},
-			{"sv", "Swedish"},
-			{"tl", "Tagalog"},
-			{"tg", "Tajik"},
-			{"ta", "Tamil"},
-			{"tt", "Tatar"},
-			{"te", "Telugu"},
-			{"th", "Thai"},
-			{"bo", "Tibetan"},
-			{"tr", "Turkish"},
-			{"tk", "Turkmen"},
-			{"uk", "Ukrainian"},
-			{"ur", "Urdu"},
-			{"uz", "Uzbek"},
-			{"vi", "Vietnamese"},
-			{"cy", "Welsh"},
-			{"yi", "Yiddish"},
-			{"yo", "Yoruba"},
+		type langInfo struct {
+			id   string
+			name string
+			row  *gtk.ListBoxRow
+		}
+
+		languages := []langInfo{
+			{id: "auto", name: "Auto-detect"},
+			{id: "en", name: "English"}, {id: "ru", name: "Russian"}, {id: "af", name: "Afrikaans"},
+			{id: "sq", name: "Albanian"}, {id: "am", name: "Amharic"}, {id: "ar", name: "Arabic"},
+			{id: "hy", name: "Armenian"}, {id: "as", name: "Assamese"}, {id: "az", name: "Azerbaijani"},
+			{id: "ba", name: "Bashkir"}, {id: "eu", name: "Basque"}, {id: "be", name: "Belarusian"},
+			{id: "bn", name: "Bengali"}, {id: "bs", name: "Bosnian"}, {id: "br", name: "Breton"},
+			{id: "bg", name: "Bulgarian"}, {id: "my", name: "Burmese"}, {id: "ca", name: "Catalan"},
+			{id: "zh", name: "Chinese"}, {id: "hr", name: "Croatian"}, {id: "cs", name: "Czech"},
+			{id: "da", name: "Danish"}, {id: "nl", name: "Dutch"}, {id: "et", name: "Estonian"},
+			{id: "fo", name: "Faroese"}, {id: "fi", name: "Finnish"}, {id: "fr", name: "French"},
+			{id: "gl", name: "Galician"}, {id: "ka", name: "Georgian"}, {id: "de", name: "German"},
+			{id: "el", name: "Greek"}, {id: "gu", name: "Gujarati"}, {id: "ht", name: "Haitian Creole"},
+			{id: "ha", name: "Hausa"}, {id: "haw", name: "Hawaiian"}, {id: "he", name: "Hebrew"},
+			{id: "hi", name: "Hindi"}, {id: "hu", name: "Hungarian"}, {id: "is", name: "Icelandic"},
+			{id: "id", name: "Indonesian"}, {id: "it", name: "Italian"}, {id: "ja", name: "Japanese"},
+			{id: "jw", name: "Javanese"}, {id: "kn", name: "Kannada"}, {id: "kk", name: "Kazakh"},
+			{id: "km", name: "Khmer"}, {id: "ko", name: "Korean"}, {id: "la", name: "Latin"},
+			{id: "lv", name: "Latvian"}, {id: "ln", name: "Lingala"}, {id: "lt", name: "Lithuanian"},
+			{id: "lb", name: "Luxembourgish"}, {id: "mk", name: "Macedonian"}, {id: "mg", name: "Malagasy"},
+			{id: "ms", name: "Malay"}, {id: "ml", name: "Malayalam"}, {id: "mt", name: "Maltese"},
+			{id: "mi", name: "Maori"}, {id: "mr", name: "Marathi"}, {id: "mn", name: "Mongolian"},
+			{id: "ne", name: "Nepali"}, {id: "no", name: "Norwegian"}, {id: "nn", name: "Nynorsk"},
+			{id: "oc", name: "Occitan"}, {id: "ps", name: "Pashto"}, {id: "fa", name: "Persian"},
+			{id: "pl", name: "Polish"}, {id: "pt", name: "Portuguese"}, {id: "pa", name: "Punjabi"},
+			{id: "ro", name: "Romanian"}, {id: "sa", name: "Sanskrit"}, {id: "sr", name: "Serbian"},
+			{id: "sn", name: "Shona"}, {id: "sd", name: "Sindhi"}, {id: "si", name: "Sinhala"},
+			{id: "sk", name: "Slovak"}, {id: "sl", name: "Slovenian"}, {id: "so", name: "Somali"},
+			{id: "es", name: "Spanish"}, {id: "su", name: "Sundanese"}, {id: "sw", name: "Swahili"},
+			{id: "sv", name: "Swedish"}, {id: "tl", name: "Tagalog"}, {id: "tg", name: "Tajik"},
+			{id: "ta", name: "Tamil"}, {id: "tt", name: "Tatar"}, {id: "te", name: "Telugu"},
+			{id: "th", name: "Thai"}, {id: "bo", name: "Tibetan"}, {id: "tr", name: "Turkish"},
+			{id: "tk", name: "Turkmen"}, {id: "uk", name: "Ukrainian"}, {id: "ur", name: "Urdu"},
+			{id: "uz", name: "Uzbek"}, {id: "vi", name: "Vietnamese"}, {id: "cy", name: "Welsh"},
+			{id: "yi", name: "Yiddish"}, {id: "yo", name: "Yoruba"},
 		}
 
 		var langCheckButtons []*gtk.Image
+		var selectedLangRow *gtk.ListBoxRow
 
-		for _, l := range languages {
+		for i := range languages {
+			l := &languages[i]
 			row := gtk.NewListBoxRow()
+			l.row = row
+
 			rowBox := gtk.NewBox(gtk.OrientationHorizontal, 10)
 			rowBox.SetMarginTop(10)
 			rowBox.SetMarginBottom(10)
@@ -294,29 +250,36 @@ func (a *App) ShowSettings() {
 			nameLabel.SetHExpand(true)
 
 			checkIcon := gtk.NewImageFromIconName("object-select-symbolic")
-			if l.id != cfg.Language {
+			langCheckButtons = append(langCheckButtons, checkIcon)
+
+			if l.id == cfg.Language {
+				checkIcon.SetOpacity(1)
+				selectedLangRow = row
+			} else {
 				checkIcon.SetOpacity(0)
 			}
-			langCheckButtons = append(langCheckButtons, checkIcon)
 
 			rowBox.Append(nameLabel)
 			rowBox.Append(checkIcon)
 			row.SetChild(rowBox)
-
 			langList.Append(row)
+
+			if selectedLangRow == row {
+				langList.SelectRow(row)
+			}
 		}
 
 		langList.SetFilterFunc(func(row *gtk.ListBoxRow) bool {
-			idx := row.Index()
-			if idx < 0 || idx >= len(languages) {
-				return false
-			}
 			searchText := strings.ToLower(searchEntry.Text())
 			if searchText == "" {
 				return true
 			}
-			langName := strings.ToLower(languages[idx].name)
-			return strings.Contains(langName, searchText)
+			for _, l := range languages {
+				if l.row == row {
+					return strings.Contains(strings.ToLower(l.name), searchText)
+				}
+			}
+			return false
 		})
 
 		searchEntry.ConnectSearchChanged(func() {
@@ -324,14 +287,21 @@ func (a *App) ShowSettings() {
 		})
 
 		langList.ConnectRowActivated(func(row *gtk.ListBoxRow) {
-			idx := row.Index()
-			if idx >= 0 && idx < len(languages) {
-				cfg.Language = languages[idx].id
-				for i, icon := range langCheckButtons {
-					if i == idx {
-						icon.SetOpacity(1)
+			var activatedIndex = -1
+			for i, lang := range languages {
+				if lang.row == row {
+					activatedIndex = i
+					break
+				}
+			}
+
+			if activatedIndex != -1 {
+				cfg.Language = languages[activatedIndex].id
+				for i := range langCheckButtons {
+					if i == activatedIndex {
+						langCheckButtons[i].SetOpacity(1)
 					} else {
-						icon.SetOpacity(0)
+						langCheckButtons[i].SetOpacity(0)
 					}
 				}
 				go saveConfig(cfg)
@@ -343,7 +313,6 @@ func (a *App) ShowSettings() {
 
 		langScroll.SetChild(langList)
 		langBox.Append(langScroll)
-
 		stack.AddTitled(langBox, "languages", "Languages")
 
 		switcher := gtk.NewStackSwitcher()
@@ -356,6 +325,6 @@ func (a *App) ShowSettings() {
 		mainBox.Append(switcher)
 
 		win.SetChild(mainBox)
-		win.Present()
+		win.Show()
 	})
 }

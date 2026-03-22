@@ -17,6 +17,9 @@ type Config struct {
 }
 
 func getConfigPath() string {
+	if p := os.Getenv("LOKSTT_CONFIG"); p != "" {
+		return p
+	}
 	home, _ := os.UserHomeDir()
 	return filepath.Join(home, ".config", "lokstt", "config.json")
 }
@@ -66,12 +69,11 @@ func (a *App) Run(args []string) int {
 }
 
 func (a *App) ShowSettings() {
-	glib.IdleAdd(func() {
-		win := gtk.NewApplicationWindow(a.Application)
-		win.SetTitle("LokSTT Settings")
-		win.SetDefaultSize(400, 500)
+	win := gtk.NewApplicationWindow(a.Application)
+	win.SetTitle("LokSTT Settings")
+	win.SetDefaultSize(400, 500)
 
-		mainBox := gtk.NewBox(gtk.OrientationVertical, 0)
+	mainBox := gtk.NewBox(gtk.OrientationVertical, 0)
 
 		stack := gtk.NewStack()
 		stack.SetVExpand(true)
@@ -354,6 +356,6 @@ func (a *App) ShowSettings() {
 		mainBox.Append(switcher)
 
 		win.SetChild(mainBox)
-		win.Show()
+		win.Present()
 	})
 }

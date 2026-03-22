@@ -7,7 +7,13 @@ import (
 	"strings"
 )
 
-const SocketPath = "/tmp/lokstt.sock"
+var SocketPath = "/tmp/lokstt.sock"
+
+func init() {
+	if s := os.Getenv("LOKSTT_SOCKET"); s != "" {
+		SocketPath = s
+	}
+}
 
 func main() {
 	if len(os.Args) < 2 {

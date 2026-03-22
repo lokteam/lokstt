@@ -3,25 +3,32 @@ package main
 import (
 	"fmt"
 	"log"
-	"net"
-	"os"
-	"math"
-	"time"
-	"regexp"
 	"lokstt/paster"
 	"lokstt/ui"
+	"math"
+	"net"
+	"os"
 	"os/signal"
+	"regexp"
+	"runtime"
 	"strings"
 	"sync"
 	"syscall"
-	"runtime"
+	"time"
 
 	"github.com/ggerganov/whisper.cpp/bindings/go/pkg/whisper"
 	"github.com/gordonklaus/portaudio"
 )
 
+var SocketPath = "/tmp/lokstt.sock"
+
+func init() {
+	if s := os.Getenv("LOKSTT_SOCKET"); s != "" {
+		SocketPath = s
+	}
+}
+
 const (
-	SocketPath = "/tmp/lokstt.sock"
 	SampleRate = 16000
 )
 
@@ -107,7 +114,7 @@ func NewDaemon(u *ui.App) (*Daemon, error) {
 			}
 		}()
 	}
-	
+
 	u.OnStop = func() {
 		d.StopAndTranscribe()
 	}
@@ -145,7 +152,7 @@ func (d *Daemon) StartRecording() string {
 	if err != nil {
 		return fmt.Sprintf("Error getting default device: %v\n", err)
 	}
-	
+
 	d.actualSampleRate = deviceInfo.DefaultSampleRate
 	d.stream, err = portaudio.OpenDefaultStream(1, 0, d.actualSampleRate, 0, func(in []float32) {
 		d.audioData = append(d.audioData, in...)
@@ -159,7 +166,7 @@ func (d *Daemon) StartRecording() string {
 	d.recording = true
 	d.ui.Overlay.Show()
 	d.ui.Overlay.UpdateTimer(0)
-	
+
 	go func() {
 		start := time.Now()
 		for {
@@ -174,7 +181,7 @@ func (d *Daemon) StartRecording() string {
 			time.Sleep(500 * time.Millisecond)
 		}
 	}()
-	
+
 	fmt.Println("Started recording...")
 	return "Recording started\n"
 }
@@ -257,7 +264,7 @@ func (d *Daemon) StopAndTranscribe() string {
 	}
 
 	text := strings.TrimSpace(textBuilder.String())
-	
+
 	re := regexp.MustCompile(`\[.*?\]|\(.*?\)|♪.*?♪`)
 	text = strings.TrimSpace(re.ReplaceAllString(text, ""))
 
@@ -283,7 +290,14 @@ func (d *Daemon) Close() {
 
 func main() {
 	u := ui.NewApp()
-	
+
+	if len(os.Args) > 1 && os.Args[1] == "--settings" {
+		u.Application.ConnectActivate(func() {
+			u.ShowSettings()
+		})
+		os.Exit(u.Run(os.Args[1:]))
+	}
+
 	go func() {
 		daemon, err := NewDaemon(u)
 		if err != nil {
@@ -352,6 +366,6 @@ func main() {
 			}(conn)
 		}
 	}()
-	
+
 	os.Exit(u.Run(os.Args))
 }
